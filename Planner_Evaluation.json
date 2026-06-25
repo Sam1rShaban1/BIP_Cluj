@@ -1,0 +1,623 @@
+{
+  "name": "Planner Evaluation",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6a083d06-92ad-4b00-a856-0d4c9be430da",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.judgePrompt }}",
+        "options": {
+          "systemMessage": "You are a strict evaluator of study plans. You are given the INPUTS (study goal, self-assessed level, handbook text, learning preferences), the STUDENT RATING the human gave (1-5), a STUDENT COMMENT ANALYSIS, and the PLAN.\n\nUse the student's rating and comment as real human signal: where the student raised a concern, weigh it; where they praised something, take that into account. Do NOT change the student's rating — it is recorded separately. Score the PLAN on four criteria, each 1-5 (5 = excellent):\n- grounding: uses only deadlines/weights actually present in the handbook; says when a deadline is unknown; invents nothing.\n- calibration: difficulty, pacing and assumed prior knowledge match the self-assessed level.\n- actionability: sessions are concrete (topic + duration + intended output); the weekly schedule is realistic.\n- honesty: states trade-offs when time is tight; does not over-promise.\n\nReturn ONLY a JSON object, no prose, no code fences:\n{\"grounding\":N,\"calibration\":N,\"actionability\":N,\"honesty\":N,\"overall\":N,\"notes\":\"one sentence\"}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "038c4bda-5bc8-458d-9faf-5c184958bc7c",
+      "name": "Judge Agent"
+    },
+    {
+      "parameters": {
+        "model": "gemma4:26b-a4b-it-qat",
+        "options": {
+          "numPredict": -1,
+          "format": "json"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        224
+      ],
+      "id": "476e86a0-75e3-4e75-b010-c40ae53d6b6e",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "gAXZlcTZSeSlI5c6",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "J3YVpdSwqeTl603G",
+          "mode": "list",
+          "cachedResultName": "student_feedback",
+          "cachedResultUrl": "/projects/g55MVXO7WPKLPZfu/datatables/J3YVpdSwqeTl603G"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "evaluated",
+              "condition": "isFalse"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3d0e8963-d279-4313-be22-cf9c203b69ac",
+      "name": "get_feedback"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const r = item.json;\n  const comment = String(r.comment || '').trim();\n  const comment_prompt = comment\n    ? `STUDENT COMMENT:\\n\"\"\"${comment}\"\"\"`\n    : 'STUDENT COMMENT:\\n(the student left no comment)';\n  return { json: { ...r, comment_prompt } };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b3a73f87-c701-4634-a893-3fd28d8e025a",
+      "name": "comment_input"
+    },
+    {
+      "parameters": {
+        "jsCode": "function extractJson(raw) {\n  let s = String(raw)\n    .replace(/<\\|?[a-z_]+\\|?>/gi, '')\n    .replace(/```[a-z]*\\n?/gi, '').replace(/```/g, '');\n  const cands = [];\n  for (let i = 0; i < s.length; i++) {\n    if (s[i] !== '{') continue;\n    let depth = 0;\n    for (let j = i; j < s.length; j++) {\n      if (s[j] === '{') depth++;\n      else if (s[j] === '}') { if (--depth === 0) { cands.push(s.slice(i, j + 1)); break; } }\n    }\n  }\n  for (let k = cands.length - 1; k >= 0; k--) { try { return JSON.parse(cands[k]); } catch {} }\n  return null;\n}\n\nconst rows = $('comment_input').all();\nconst analyses = $('Comment Analysis Agent').all();\nconst out = [];\n\nfor (let i = 0; i < rows.length; i++) {\n  const r = rows[i].json;\n  const a = extractJson(analyses[i]?.json?.output ?? analyses[i]?.json?.text ?? '')\n    || { comment_present:false, sentiment:'none', themes:[], specific_issues:'none stated', praise:'none stated', summary:'none stated' };\n\n  const judgePrompt =\n`INPUTS (study goal, self-assessed level, handbook, learning preferences, source code)\n${r.inputs}\n\nSTUDENT RATING (1-5, given by the human student): ${r.rating}\n\nSTUDENT COMMENT ANALYSIS:\n- sentiment: ${a.sentiment}\n- themes: ${(a.themes || []).join(', ') || 'none'}\n- issues raised: ${a.specific_issues}\n- praise: ${a.praise}\n- summary: ${a.summary}\n\nPLAN\n${r.plan}`;\n\n  out.push({ json: {\n    feedback_id: r.feedback_id,\n    student: r.student,\n    rating: r.rating,        // carried untouched\n    _analysis: a,\n    judgePrompt\n  }});\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "c784d732-a7df-440c-ad71-c13c8504ff81",
+      "name": "judge_input"
+    },
+    {
+      "parameters": {
+        "jsCode": "function extractJson(raw) {\n  let s = String(raw)\n    .replace(/<\\|?[a-z_]+\\|?>/gi, '')\n    .replace(/```[a-z]*\\n?/gi, '').replace(/```/g, '');\n  const cands = [];\n  for (let i = 0; i < s.length; i++) {\n    if (s[i] !== '{') continue;\n    let depth = 0;\n    for (let j = i; j < s.length; j++) {\n      if (s[j] === '{') depth++;\n      else if (s[j] === '}') { if (--depth === 0) { cands.push(s.slice(i, j + 1)); break; } }\n    }\n  }\n  for (let k = cands.length - 1; k >= 0; k--) { try { return JSON.parse(cands[k]); } catch {} }\n  return null;\n}\n\nconst meta = $('judge_input').all();\nconst judged = $('Judge Agent').all();\nconst out = [];\n\nfor (let i = 0; i < judged.length; i++) {\n  const m = meta[i].json;\n  const a = m._analysis || {};\n  const s = extractJson(judged[i].json.output ?? judged[i].json.text ?? '')\n    || { grounding:0, calibration:0, actionability:0, honesty:0, overall:0, notes:'PARSE_FAILED' };\n\n  out.push({ json: {\n    feedback_id: m.feedback_id,\n    evaluated_at: new Date().toISOString(),\n    student: m.student,\n    student_rating: m.rating,                       // human rating, untouched\n    comment_present: !!a.comment_present,\n    comment_sentiment: a.sentiment || 'none',\n    comment_themes: (a.themes || []).join('; '),\n    comment_summary: a.summary || 'none stated',\n    grounding: Number(s.grounding) || 0,\n    calibration: Number(s.calibration) || 0,\n    actionability: Number(s.actionability) || 0,\n    honesty: Number(s.honesty) || 0,\n    overall: Number(s.overall) || 0,\n    notes: String(s.notes || '')\n  }});\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "f1a1d0ee-8d5c-465b-96e7-5dc077044b23",
+      "name": "combine"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "11HUvqfb2dwpYXCv",
+          "mode": "list",
+          "cachedResultName": "plan_evaluations",
+          "cachedResultUrl": "/projects/g55MVXO7WPKLPZfu/datatables/11HUvqfb2dwpYXCv"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "comment_present": "={{ $json.comment_present }}",
+            "student_rating": "={{ $json.student_rating }}",
+            "grounding": "={{ $json.grounding }}",
+            "calibration": "={{ $json.calibration }}",
+            "actionability": "={{ $json.actionability }}",
+            "honesty": "={{ $json.honesty }}",
+            "overall": "={{ $json.overall }}",
+            "feedback_id": "={{ $json.feedback_id }}",
+            "evaluated_at": "={{ $json.evaluated_at }}",
+            "student": "={{ $json.student }}",
+            "comment_sentiment": "={{ $json.comment_sentiment }}",
+            "comment_themes": "={{ $json.comment_themes }}",
+            "comment_summary": "={{ $json.comment_summary }}",
+            "notes": "={{ $json.notes }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "feedback_id",
+              "displayName": "feedback_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "evaluated_at",
+              "displayName": "evaluated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "student",
+              "displayName": "student",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "student_rating",
+              "displayName": "student_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "comment_present",
+              "displayName": "comment_present",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "comment_sentiment",
+              "displayName": "comment_sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "comment_themes",
+              "displayName": "comment_themes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "comment_summary",
+              "displayName": "comment_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "grounding",
+              "displayName": "grounding",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "calibration",
+              "displayName": "calibration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "actionability",
+              "displayName": "actionability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "honesty",
+              "displayName": "honesty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "overall",
+              "displayName": "overall",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1824,
+        0
+      ],
+      "id": "24d28cdf-3b1c-4938-bf95-1246713feb7d",
+      "name": "save_evaluation_row"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "J3YVpdSwqeTl603G",
+          "mode": "list",
+          "cachedResultName": "student_feedback",
+          "cachedResultUrl": "/projects/g55MVXO7WPKLPZfu/datatables/J3YVpdSwqeTl603G"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "feedback_id",
+              "keyValue": "={{ $json.feedback_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "evaluated": "={{ true }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "feedback_id",
+              "displayName": "feedback_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "student",
+              "displayName": "student",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "level",
+              "displayName": "level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "inputs",
+              "displayName": "inputs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "plan",
+              "displayName": "plan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "evaluated",
+              "displayName": "evaluated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2048,
+        0
+      ],
+      "id": "dea59c64-2628-4172-b3fd-4d6645008423",
+      "name": "mark_evaluated"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.comment_prompt }}",
+        "options": {
+          "systemMessage": "/no_think\nYou analyze ONE free-text comment a student left about their study plan. You are given only the STUDENT COMMENT. Do not judge the plan itself. Do not invent opinions the student did not express. If the comment is empty, set \"comment_present\" to false and use \"none\" / \"none stated\" values.\n\nReturn ONLY a JSON object, no prose, no code fences:\n{\"comment_present\":true,\"sentiment\":\"positive|neutral|negative|mixed|none\",\"themes\":[\"short tag\"],\"specific_issues\":\"one or two sentences, or 'none stated'\",\"praise\":\"one sentence, or 'none stated'\",\"summary\":\"one neutral sentence summarising the comment, or 'none stated'\"}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "bb768a7d-95ae-424b-be05-9d870c1610db",
+      "name": "Comment Analysis Agent"
+    },
+    {
+      "parameters": {
+        "model": "gemma4:26b-a4b-it-qat",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        752,
+        224
+      ],
+      "id": "5842e6e8-714d-4087-9c51-1a9ca002c935",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "gAXZlcTZSeSlI5c6",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "get_feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Judge Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Judge Agent": {
+      "main": [
+        [
+          {
+            "node": "combine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_feedback": {
+      "main": [
+        [
+          {
+            "node": "comment_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "comment_input": {
+      "main": [
+        [
+          {
+            "node": "Comment Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "judge_input": {
+      "main": [
+        [
+          {
+            "node": "Judge Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "combine": {
+      "main": [
+        [
+          {
+            "node": "save_evaluation_row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save_evaluation_row": {
+      "main": [
+        [
+          {
+            "node": "mark_evaluated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "judge_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Comment Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6b0f3570-0341-4628-8df1-2243006b6ddb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40a9dfe768665d2830970e3112a685f80ae1ee5caef5030b877cb1775dfeddad"
+  },
+  "nodeGroups": [],
+  "id": "4SjMEwLabDCQxeFc",
+  "tags": []
+}

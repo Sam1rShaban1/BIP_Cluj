@@ -1,0 +1,85 @@
+{
+  "name": "Calendar MCP",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "3a11b8ec-2585-498b-b6f9-fb5e5dd27ed9"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -16
+      ],
+      "id": "2d9e6621-936f-43fd-b717-c91e4eaafa48",
+      "name": "MCP Server Trigger",
+      "webhookId": "3a11b8ec-2585-498b-b6f9-fb5e5dd27ed9"
+    },
+    {
+      "parameters": {
+        "description": "Returns the student's existing weekly calendar commitments (busy blocks) they must study around. Takes no parameters.",
+        "jsCode": "const commitments = [\n       { day: 'Monday',    start: '09:00', end: '13:00', title: 'Lectures' },\n       { day: 'Tuesday',   start: '14:00', end: '16:00', title: 'Lab' },\n       { day: 'Wednesday', start: '09:00', end: '12:00', title: 'Seminar' },\n       { day: 'Thursday',  start: '18:00', end: '20:00', title: 'Part-time job' },\n       { day: 'Saturday',  start: '10:00', end: '14:00', title: 'Part-time job' }\n     ];\n     return JSON.stringify(commitments);"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -240,
+        208
+      ],
+      "id": "3ab85389-f2f3-42bd-a0d4-455dd8fae5b0",
+      "name": "get_calendar_commitments"
+    },
+    {
+      "parameters": {
+        "description": "Adds ONE recurring weekly study session to the student's local calendar. Input MUST be a JSON object string with keys: title (string), weekday (lowercase: monday..sunday), start (\"HH:MM\"), end (\"HH:MM\"), weeks (integer, how many weeks it repeats, default 12). Example: {\"title\":\"Algebra review\",\"weekday\":\"monday\",\"start\":\"09:00\",\"end\":\"10:30\",\"weeks\":12}. Returns \"OK: ...\" on success or \"ERROR: ...\" on bad input.",
+        "jsCode": "const fs = require('fs');\nconst FILE = '/data/flagged/study-calendar.ics';\n\nlet args;\ntry { args = typeof query === 'string' ? JSON.parse(query) : query; }\ncatch { return 'ERROR: expected a JSON object string like {\"title\":\"...\",\"weekday\":\"monday\",\"start\":\"09:00\",\"end\":\"10:30\",\"weeks\":12}'; }\n\nconst DOW = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };\nconst title   = String(args.title || 'Study session');\nconst weekday = String(args.weekday || '').trim().toLowerCase();\nconst start   = String(args.start || '09:00');\nconst end     = String(args.end || start);\nconst weeks   = Number(args.weeks) > 0 ? Number(args.weeks) : 12;\nif (!(weekday in DOW)) return `ERROR: weekday must be one of ${Object.keys(DOW).join(', ')}`;\n\nconst pad = n => String(n).padStart(2, '0');\nconst esc = t => String(t).replace(/\\\\/g,'\\\\\\\\').replace(/;/g,'\\\\;').replace(/,/g,'\\\\,').replace(/\\r?\\n/g,'\\\\n');\n\nconst now = new Date();\nconst delta = (DOW[weekday] - now.getDay() + 7) % 7;\nconst d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + delta);\nconst fmt = hhmm => { const [h,m] = String(hhmm).split(':').map(x => parseInt(x,10)||0);\n  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(h)}${pad(m)}00`; };\nconst dtstamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;\nconst uid = `study-${Date.now()}-${Math.floor(Math.random()*1e6)}@study-planner`;\n\nconst vevent = [\n  'BEGIN:VEVENT',\n  `UID:${uid}`,\n  `DTSTAMP:${dtstamp}`,\n  `DTSTART:${fmt(start)}`,\n  `DTEND:${fmt(end)}`,\n  `RRULE:FREQ=WEEKLY;COUNT=${weeks}`,\n  `SUMMARY:${esc(title)}`,\n  'END:VEVENT'\n].join('\\r\\n');\n\nconst HEADER = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Study Planner//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'].join('\\r\\n') + '\\r\\n';\nconst FOOTER = 'END:VCALENDAR\\r\\n';\n\nfs.mkdirSync('/data/flagged', { recursive: true });\nlet body;\ntry {\n  const existing = fs.readFileSync(FILE, 'utf8');\n  body = existing.replace(/END:VCALENDAR\\s*$/, '') + vevent + '\\r\\n' + FOOTER;\n} catch {\n  body = HEADER + vevent + '\\r\\n' + FOOTER;\n}\nfs.writeFileSync(FILE, body);\nreturn `OK: added \"${title}\" on ${weekday} ${start}-${end}, repeating weekly for ${weeks} weeks.`;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        208
+      ],
+      "id": "57fa05a8-d2e9-4aa3-8f6d-1243b224e686",
+      "name": "create_calendar_event"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "get_calendar_commitments": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_calendar_event": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0d61cd2a-9e20-4565-9cc0-64d2435361b7",
+  "meta": {
+    "instanceId": "40a9dfe768665d2830970e3112a685f80ae1ee5caef5030b877cb1775dfeddad"
+  },
+  "nodeGroups": [],
+  "id": "eF2zRjYBIFT78jDd",
+  "tags": []
+}
