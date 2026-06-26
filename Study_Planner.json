@@ -1,15 +1,17 @@
+
+
 {
   "name": "Study Planner",
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\\nconst form = () => $('form_data').first();\\n\\nconst handbookText =\\n  safe(() => $('pdf_extractor').first().json.text, '') || '(no handbook provided)';\\n\\nlet codeText =\\n  safe(() => { const j = $('code_extractor').first().json; return j.text ?? j.data; }, '')\\n  || '(no source code provided)';\\ncodeText = codeText.slice(0, 8000);\\n\\nconst goal  = safe(() => form().json['Study goal'], '');\\nconst level = safe(() => form().json['Your level'], 'Unspecified');\\nconst email = safe(() => form().json['Email'], '');\\nconst timezone = safe(() => form().json['Timezone'], 'UTC');\\n\\nconst prefLabels = [\\n  'When you take in new information, you learn best by',\\n  'You remember new material best when you',\\n  'When researching a topic on your own, you prefer to',\\n  'Your ideal study session looks like',\\n  'When memorising facts or terms, you',\\n  \"When following a new procedure, you'd rather\",\\n  'To understand how something works, you'\\n];\\nconst tally = { Visual: 0, Auditory: 0, 'Reading/Writing': 0, Kinesthetic: 0 };\\nconst answers = [];\\nfor (const label of prefLabels) {\\n  const a = safe(() => form().json[label], '');\\n  if (!a) continue;\\n  answers.push(`- ${label}: ${a}`);\\n  const key = a.split('\\u2014')[0].trim();\\n  if (key in tally) tally[key]++;\\n}\\nconst max = Math.max(0, ...Object.values(tally));\\nconst dominant = max === 0\\n  ? 'Unspecified'\\n  : Object.keys(tally).filter(k => tally[k] === max).join(' / ');\\n\\nconst prefsBlock = answers.length\\n  ? `Dominant style: ${dominant}\\n${answers.join('\\n')}`\\n  : '(no learning preferences provided)';\\n\\nconst commitmentsBlock = safe(() => $('parse_commitments').first().json.commitmentsBlock, '');\\n\\nconst prompt =\\n`STUDY GOAL:\\n${goal}\\n\\nSELF-ASSESSED LEVEL: ${level}\\n\\n=== LEARNING PREFERENCES ===\\n${prefsBlock}\\n\\n=== MODULE HANDBOOK ===\\n${handbookText}\\n\\n=== SOURCE CODE ===\\n${codeText}${commitmentsBlock}`;\\n\\nreturn [{ json: { prompt, dominant, email, timezone } }];"
+        "jsCode": "const safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\nconst form = () => $('form_data').first();\n\nconst handbookText =\n  safe(() => $('pdf_extractor').first().json.text, '') || '(no handbook provided)';\n\nlet codeText =\n  safe(() => { const j = $('code_extractor').first().json; return j.text ?? j.data; }, '')\n  || '(no source code provided)';\ncodeText = codeText.slice(0, 8000);\n\nconst goal  = safe(() => form().json['Study goal'], '');\nconst level = safe(() => form().json['Your level'], 'Unspecified');\nconst email = safe(() => form().json['Email'], '');\n\n// --- learning preferences (VARK) ---\nconst prefLabels = [\n  'When you take in new information, you learn best through which of the following mediums?',\n  'When researching a topic on your own, you prefer which of the following the most?',\n  'When memorising facts or terms, you prefer which of the following the most?',\n  'To understand how something works, you prefer the which of following the most?'\n];\nconst tally = { Visual: 0, Auditory: 0, 'Reading/Writing': 0, Kinesthetic: 0 };\nconst answers = [];\nfor (const label of prefLabels) {\n  const a = safe(() => form().json[label], '');\n  if (!a) continue;\n  answers.push(`- ${label}: ${a}`);\n  const key = a.split('—')[0].trim();\n  if (key in tally) tally[key]++;\n}\nconst max = Math.max(0, ...Object.values(tally));\nconst dominant = max === 0\n  ? 'Unspecified'\n  : Object.keys(tally).filter(k => tally[k] === max).join(' / ');\n\nconst prefsBlock = answers.length\n  ? `Dominant style: ${dominant}\\n${answers.join('\\n')}`\n  : '(no learning preferences provided)';\n\nconst prompt =\n`STUDY GOAL:\n${goal}\n\nSELF-ASSESSED LEVEL: ${level}\n\n=== LEARNING PREFERENCES ===\n${prefsBlock}\n\n=== MODULE HANDBOOK ===\n${handbookText}\n\n=== SOURCE CODE ===\n${codeText}`;\n\nreturn [{ json: { prompt, dominant, email } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
-        -128
+        3792,
+        -240
       ],
       "id": "eba8e154-d47a-4f4e-bf10-81877c8295a4",
       "name": "context"
@@ -24,8 +26,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        3344,
-        96
+        4016,
+        -16
       ],
       "id": "f4ec58f5-4773-4ded-be4d-19fa1b5ac9e8",
       "name": "Ollama Chat Model",
@@ -45,8 +47,8 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        2224,
-        -192
+        2896,
+        -304
       ],
       "id": "1c63049d-430b-45fc-a0cb-997044c2c417",
       "name": "pdf_extractor"
@@ -79,8 +81,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2000,
-        -128
+        2672,
+        -240
       ],
       "id": "65d19209-ab52-4dda-a427-39df99167697",
       "name": "has_handbook"
@@ -113,8 +115,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2448,
-        -128
+        3120,
+        -240
       ],
       "id": "a52e5a08-d309-435b-a42a-b74a56760192",
       "name": "has_code"
@@ -128,8 +130,8 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        2896,
-        -192
+        3568,
+        -304
       ],
       "id": "6d861458-75d1-469a-b00b-5fe5359616ba",
       "name": "code_extractor"
@@ -144,8 +146,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        3888,
-        96
+        4560,
+        -16
       ],
       "id": "58840a92-5753-41df-8772-b80fae6fa558",
       "name": "Ollama Chat Model1",
@@ -167,8 +169,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        3808,
-        -128
+        4480,
+        -240
       ],
       "id": "a04f91f4-bcc3-42de-bdcb-a11f5c3e458f",
       "name": "wellness_agent"
@@ -184,8 +186,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4160,
-        -128
+        4832,
+        -240
       ],
       "id": "bcbe7c89-319b-4043-ab88-40c2662a9f87",
       "name": "sustainability_agent"
@@ -200,8 +202,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        4240,
-        96
+        4912,
+        -16
       ],
       "id": "f851e495-51f6-48a4-be66-c1334825f972",
       "name": "Ollama Chat Model2",
@@ -219,8 +221,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4736,
-        -128
+        5408,
+        -240
       ],
       "id": "42e0cda5-3357-4052-b053-78c3473cd60e",
       "name": "save_report"
@@ -230,14 +232,14 @@
         "promptType": "define",
         "text": "={{ $json.prompt }}",
         "options": {
-          "systemMessage": "You are a study planning assistant. You receive a STUDY GOAL, a SELF-ASSESSED LEVEL, the text of a MODULE HANDBOOK (topics, learning outcomes, assessments with weights/deadlines), and optionally SOURCE CODE.\\n\\nYou also receive EXISTING WEEKLY COMMITMENTS if the student provided any. Never schedule study sessions during those times \\u2014 work around them.\\n\\nProduce a realistic, actionable study plan that:\\n- Works backwards from assessment deadlines/weights in the handbook (heavier or sooner assessments get more time).\\n- Breaks the goal into weekly milestones, then concrete study sessions (topic + duration + intended output).\\n- Proposes a realistic weekly schedule across the student's available study days.\\n- States trade-offs honestly if the time before deadlines is tight.\\n\\nCalibrate the plan to SELF-ASSESSED LEVEL:\\n- Beginner: assume little prior knowledge, scaffold fundamentals first, slower ramp, define key terms.\\n- Intermediate: brief refreshers only, focus on application and gaps.\\n- Advanced: skip fundamentals, emphasise depth, edge cases and pace; assume fluency.\\n\\nCalibrate the MEDIUM of each study activity to the LEARNING PREFERENCES block. Visual \\u2192 diagrams, video walkthroughs, mind-maps. Auditory \\u2192 recorded explanations, study-group discussion, talk-throughs. Reading/Writing \\u2192 readings, written summaries, note-taking. Kinesthetic \\u2192 hands-on labs, coding exercises and practice problems first. If preferences are unspecified, vary the medium sensibly. This changes HOW sessions are delivered, never the grounding rules on deadlines.\\n\\nTreat SOURCE CODE as hands-on practice/reference material to work through, not just read.\\n\\nOutput clean Markdown only: a one-paragraph summary, a \"Weekly Milestones\" section, a \"Detailed Schedule\" table (Day | Time block | Module/Topic | Task), and a short \"Risks & assumptions\" list. Do not invent deadlines not present in the handbook; if a deadline is unknown, say so."
+          "systemMessage": "/no_think\n\nWhen tools are available, call get_weather and get_calendar_commitments before writing the plan. Never schedule a study session over an existing calendar commitment — work around them. Only use weather when suggesting outdoor breaks or study locations.\n\nYou are a study planning assistant. You receive a STUDY GOAL, a SELF-ASSESSED LEVEL, the text of a MODULE HANDBOOK (topics, learning outcomes, assessments with weights/deadlines), and optionally SOURCE CODE.\n\nProduce a realistic, actionable study plan that:\n- Works backwards from assessment deadlines/weights in the handbook (heavier or sooner assessments get more time).\n- Breaks the goal into weekly milestones, then concrete study sessions (topic + duration + intended output).\n- Proposes a realistic weekly schedule across the student's available study days.\n- States trade-offs honestly if the time before deadlines is tight.\n\nCalibrate the plan to SELF-ASSESSED LEVEL:\n- Beginner: assume little prior knowledge, scaffold fundamentals first, slower ramp, define key terms.\n- Intermediate: brief refreshers only, focus on application and gaps.\n- Advanced: skip fundamentals, emphasise depth, edge cases and pace; assume fluency.\n\nCalibrate the MEDIUM of each study activity to the LEARNING PREFERENCES block. Visual → diagrams, video walkthroughs, mind-maps. Auditory → recorded explanations, study-group discussion, talk-throughs. Reading/Writing → readings, written summaries, note-taking. Kinesthetic → hands-on labs, coding exercises and practice problems first. If preferences are unspecified, vary the medium sensibly. This changes HOW sessions are delivered, never the grounding rules on deadlines.\n\nTreat SOURCE CODE as hands-on practice/reference material to work through, not just read.\n\nYou may ONLY use get_calendar_commitments to read existing commitments. Never call create_calendar_event.\n\nOutput clean Markdown only: a one-paragraph summary, a \"Weekly Milestones\" section, a \"Detailed Schedule\" table (Day | Time block | Module/Topic | Task), and a short \"Risks & assumptions\" list. Do not invent deadlines not present in the handbook; if a deadline is unknown, say so."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        3408,
-        -128
+        4080,
+        -240
       ],
       "id": "9cbec6a0-2256-4546-ac8e-dc10437426fd",
       "name": "plan_agent"
@@ -249,8 +251,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5760,
-        -128
+        6432,
+        -240
       ],
       "id": "481821ee-8533-47f3-953a-6c684bc00838",
       "name": "log_feedback"
@@ -294,8 +296,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        5536,
-        -128
+        6208,
+        -240
       ],
       "id": "457d2d3b-5185-4725-bd7c-f8b20ac78d32",
       "name": "Feedback",
@@ -312,8 +314,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        6880,
-        -224
+        7552,
+        -336
       ],
       "id": "cbc3447e-3124-4a4a-9ecf-5ce46e7fe058",
       "name": "Completion",
@@ -321,15 +323,33 @@
     },
     {
       "parameters": {
-        "toolDescription": "Returns the 7-day weather forecast for the student's city. Takes no parameters.",
-        "url": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto",
+        "endpointUrl": "http://localhost:5678/mcp/3a11b8ec-2585-498b-b6f9-fb5e5dd27ed9",
+        "include": "selected",
+        "includeTools": [
+          "get_calendar_commitments"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.3,
+      "position": [
+        4144,
+        -16
+      ],
+      "id": "97ff2e1e-38b7-42c7-bc6a-1b321a6628e9",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Returns the 7-day Berlin weather forecast. Takes no parameters.",
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=Europe%2FBerlin",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
       "position": [
-        3600,
-        96
+        4272,
+        -16
       ],
       "id": "c9dd448b-6c24-4075-ad04-5155ac6c15ab",
       "name": "get_weather"
@@ -344,8 +364,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        5040,
-        96
+        5712,
+        -16
       ],
       "id": "1483c5d6-76e0-4b6a-8743-b9a855a6fbb1",
       "name": "Ollama Chat Model3",
@@ -361,27 +381,27 @@
         "promptType": "define",
         "text": "={{ $('save_report').first().json.report }}",
         "options": {
-          "systemMessage": "You extract scheduled study sessions from a study plan.\\nReturn ONLY a JSON object with two fields: \"events\" (array) and \"weeks\" (number).\\n\\nevents: array of objects, each with ALL four fields:\\n{\"day\":\"Monday\",\"start\":\"09:00\",\"end\":\"11:00\",\"title\":\"short label\"}\\n\\nweeks: the total number of weeks the plan covers. Count the distinct weeks mentioned.\\nIf you cannot determine the plan duration, use 12.\\n\\nRules:\\n- Use 24-hour times (HH:MM)\\n- Weekday names exactly: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday\\n- Always include both start AND end times\\n- Only concrete study sessions with a day and time block\\n- Ignore deadlines, milestones, prose\\n- If no sessions found, return {\"events\":[],\"weeks\":12}\\n\\nExample: {\"events\":[{\"day\":\"Monday\",\"start\":\"09:00\",\"end\":\"11:00\",\"title\":\"Algorithms review\"}],\"weeks\":8}"
+          "systemMessage": "/no_think\nYou extract scheduled study sessions from a study plan. Read the plan and return ONLY a JSON array, no prose, no code fences. Each element: {\"day\":\"Monday\",\"start\":\"HH:MM\",\"end\":\"HH:MM\",\"title\":\"short label\"}. Use 24-hour times. Use the weekday names exactly as Monday..Sunday. Include only concrete study sessions with a day and a start time; ignore deadlines, milestones and prose. If none are found, return []."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4960,
-        -128
+        5632,
+        -240
       ],
       "id": "ecb5fc88-5236-4368-a74d-10034b18861a",
       "name": "ics_agent"
     },
     {
       "parameters": {
-        "jsCode": "const fs = require('fs');\\nconst safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\\n\\nconst dir = '/data/flagged';\\ntry { fs.mkdirSync(dir, { recursive: true }); } catch {}\\n\\nconst DOW = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };\\nconst pad = n => String(n).padStart(2, '0');\\n\\nfunction defaultEnd(start) {\\n  const [h, m] = String(start || '09:00').split(':').map(x => parseInt(x, 10) || 0);\\n  return `${pad((h + 1) % 24)}:${pad(m)}`;\\n}\\n\\nfunction dateForDow(dow) {\\n  const now = new Date();\\n  const dayOfWeek = now.getDay();\\n  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;\\n  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);\\n  const targetOffset = dow === 0 ? 6 : dow - 1;\\n  return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + targetOffset);\\n}\\n\\nfunction fmt(d, hhmm) {\\n  const [h, m] = String(hhmm || '09:00').split(':').map(x => parseInt(x, 10) || 0);\\n  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(h)}${pad(m)}00`;\\n}\\n\\nfunction esc(t) {\\n  return String(t || 'Study session')\\n    .replace(/\\\\/g, '\\\\\\\\').replace(/;/g, '\\\\;').replace(/,/g, '\\\\,').replace(/\\r?\\n/g, '\\\\n');\\n}\\n\\nconst raw = $json.output ?? $json.text ?? '';\\nlet events = [];\\nlet weeks = 12;\\nconst cleaned = String(raw).replace(/<\\|?[a-z_]+\\|?>/gi, '')\\n  .replace(/```[a-z]*\\n?/gi, '').replace(/```/g, '');\\n\\ntry {\\n  const p = JSON.parse(cleaned);\\n  if (p && Array.isArray(p.events)) { events = p.events; weeks = Number(p.weeks) || 12; }\\n  else if (Array.isArray(p)) { events = p; }\\n} catch {\\n  const i = cleaned.indexOf('['), j = cleaned.lastIndexOf(']');\\n  if (i !== -1 && j > i) {\\n    try { const a = JSON.parse(cleaned.slice(i, j + 1)); if (Array.isArray(a)) events = a; } catch {}\\n  }\\n}\\n\\nevents = events.filter(e => e && e.day && e.start);\\n\\nconst src = $('save_report').first().json;\\nconst name = src.name || 'student';\\nconst timezone = safe(() => $('context').first().json.timezone, 'UTC');\\n\\nconst now = new Date();\\nconst dtstamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;\\n\\nconst lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Study Planner//EN',\\n  'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];\\n\\nevents.forEach((e, idx) => {\\n  const key = String(e.day).trim().toLowerCase();\\n  if (!(key in DOW)) return;\\n  if (!/^\\d{1,2}:\\d{2}$/.test(e.start)) return;\\n  const endTime = e.end || defaultEnd(e.start);\\n  if (!/^\\d{1,2}:\\d{2}$/.test(endTime)) return;\\n\\n  const d = dateForDow(DOW[key]);\\n  lines.push('BEGIN:VEVENT',\\n    `UID:study-${idx}-${Date.now()}@study-planner`,\\n    `DTSTAMP:${dtstamp}`,\\n    `DTSTART;TZID=${timezone}:${fmt(d, e.start)}`,\\n    `DTEND;TZID=${timezone}:${fmt(d, endTime)}`,\\n    `RRULE:FREQ=WEEKLY;COUNT=${weeks}`,\\n    `SUMMARY:${esc(e.title)}`,\\n    'END:VEVENT');\\n});\\nlines.push('END:VCALENDAR');\\nconst ics = lines.join('\\r\\n') + '\\r\\n';\\n\\nconst safeName = String(name).replace(/[^a-z0-9]+/gi, '_').toLowerCase();\\nconst stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');\\nconst path = `${dir}/plan-${safeName}-${stamp}.ics`;\\n\\ntry { fs.writeFileSync(path, ics); }\\ncatch (err) {\\n  return [{ json: { ics_saved: null, events: 0, error: err.message,\\n    report: src.report, name, saved: src.saved } }];\\n}\\n\\nreturn [{ json: { ics_saved: path, events: events.length, weeks,\\n  report: src.report, name, saved: src.saved } }];"
+        "jsCode": "const fs = require('fs');\nconst dir = '/data/flagged';\nfs.mkdirSync(dir, { recursive: true });\n\nfunction extractArray(raw) {\n  let s = String(raw)\n    .replace(/<\\|?[a-z_]+\\|?>/gi, '')\n    .replace(/```[a-z]*\\n?/gi, '').replace(/```/g, '');\n  try { const v = JSON.parse(s); if (Array.isArray(v)) return v; } catch {}\n  const i = s.indexOf('['), j = s.lastIndexOf(']');\n  if (i !== -1 && j > i) { try { const v = JSON.parse(s.slice(i, j + 1)); if (Array.isArray(v)) return v; } catch {} }\n  return [];\n}\n\nconst DOW = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };\nconst pad = n => String(n).padStart(2, '0');\n\nfunction nextDateForDow(dow) {\n  const now = new Date();\n  const delta = (dow - now.getDay() + 7) % 7;\n  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + delta);\n}\nfunction fmt(d, hhmm) {\n  const [h, m] = String(hhmm || '09:00').split(':').map(x => parseInt(x, 10) || 0);\n  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(h)}${pad(m)}00`;\n}\nfunction esc(t) {\n  return String(t || 'Study session')\n    .replace(/\\\\/g,'\\\\\\\\').replace(/;/g,'\\\\;').replace(/,/g,'\\\\,').replace(/\\r?\\n/g,'\\\\n');\n}\n\nconst raw = $json.output ?? $json.text ?? '';\nconst events = extractArray(raw).filter(e => e && e.day && e.start);\n\nconst src  = $('save_report').first().json;\nconst name = src.name || 'student';\n\nconst now = new Date();\nconst dtstamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;\n\nconst lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Study Planner//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH'];\nevents.forEach((e, idx) => {\n  const key = String(e.day).trim().toLowerCase();\n  if (!(key in DOW)) return;\n  const d = nextDateForDow(DOW[key]);\n  lines.push(\n    'BEGIN:VEVENT',\n    `UID:study-${idx}-${Date.now()}@study-planner`,\n    `DTSTAMP:${dtstamp}`,\n    `DTSTART:${fmt(d, e.start)}`,\n    `DTEND:${fmt(d, e.end || e.start)}`,\n    'RRULE:FREQ=WEEKLY;COUNT=12',\n    `SUMMARY:${esc(e.title)}`,\n    'END:VEVENT'\n  );\n});\nlines.push('END:VCALENDAR');\nconst ics = lines.join('\\r\\n') + '\\r\\n';\n\nconst safeName = String(name).replace(/[^a-z0-9]+/gi,'_').toLowerCase();\nconst stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');\nconst path = `${dir}/plan-${safeName}-${stamp}.ics`;\nfs.writeFileSync(path, ics);\n\nreturn [{ json: { ics_saved: path, events: events.length, report: src.report, name, saved: src.saved } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5312,
-        -128
+        5984,
+        -240
       ],
       "id": "c50f8ae0-f436-40cd-aaa5-f071425fcc8e",
       "name": "build_ics"
@@ -393,8 +413,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6432,
-        -224
+        7104,
+        -336
       ],
       "id": "04c2503b-c672-4006-89a5-83717925d38e",
       "name": "bundle_files"
@@ -408,8 +428,8 @@
       "type": "n8n-nodes-base.compression",
       "typeVersion": 1.1,
       "position": [
-        6656,
-        -224
+        7328,
+        -336
       ],
       "id": "f332841d-d4a2-433c-b267-9ac5c062eb63",
       "name": "Compression"
@@ -421,8 +441,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4512,
-        -128
+        5184,
+        -240
       ],
       "id": "fbe71e25-34a2-4121-8c52-d83493c72647",
       "name": "assemble_report"
@@ -572,8 +592,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        5984,
-        -128
+        6656,
+        -240
       ],
       "id": "7008f9cc-3139-43f6-9e47-780adb674734",
       "name": "save_feedback_row"
@@ -591,108 +611,6 @@
             {
               "fieldLabel": "Email",
               "fieldType": "email"
-            },
-            {
-              "fieldLabel": "Timezone",
-              "fieldType": "dropdown",
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "UTC"
-                  },
-                  {
-                    "option": "Europe/London"
-                  },
-                  {
-                    "option": "Europe/Berlin"
-                  },
-                  {
-                    "option": "Europe/Paris"
-                  },
-                  {
-                    "option": "Europe/Moscow"
-                  },
-                  {
-                    "option": "America/New_York"
-                  },
-                  {
-                    "option": "America/Chicago"
-                  },
-                  {
-                    "option": "America/Denver"
-                  },
-                  {
-                    "option": "America/Los_Angeles"
-                  },
-                  {
-                    "option": "America/Sao_Paulo"
-                  },
-                  {
-                    "option": "Asia/Tokyo"
-                  },
-                  {
-                    "option": "Asia/Shanghai"
-                  },
-                  {
-                    "option": "Asia/Kolkata"
-                  },
-                  {
-                    "option": "Asia/Dubai"
-                  },
-                  {
-                    "option": "Australia/Sydney"
-                  },
-                  {
-                    "option": "Pacific/Auckland"
-                  }
-                ]
-              },
-              "requiredField": false
-            },
-            {
-              "fieldLabel": "Location",
-              "fieldType": "dropdown",
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "London"
-                  },
-                  {
-                    "option": "Berlin"
-                  },
-                  {
-                    "option": "Paris"
-                  },
-                  {
-                    "option": "New York"
-                  },
-                  {
-                    "option": "Chicago"
-                  },
-                  {
-                    "option": "Los Angeles"
-                  },
-                  {
-                    "option": "Tokyo"
-                  },
-                  {
-                    "option": "Shanghai"
-                  },
-                  {
-                    "option": "Mumbai"
-                  },
-                  {
-                    "option": "Sydney"
-                  },
-                  {
-                    "option": "Cluj-Napoca"
-                  },
-                  {
-                    "option": "Other"
-                  }
-                ]
-              },
-              "requiredField": false
             }
           ]
         },
@@ -702,7 +620,7 @@
       "typeVersion": 2.6,
       "position": [
         -240,
-        -128
+        -240
       ],
       "id": "800fb434-f12d-431b-8aa9-d286d2616197",
       "name": "Page 1 - Your details",
@@ -715,12 +633,6 @@
             {
               "fieldLabel": "Study goal",
               "fieldType": "textarea"
-            },
-            {
-              "fieldLabel": "Existing weekly commitments",
-              "fieldType": "textarea",
-              "placeholder": "One per line, e.g.:\\nMonday 09:00-13:00 Lectures\\nTuesday 14:00-16:00 Lab\\nWednesday 09:00 Seminar\\n\\nLeave empty if none.",
-              "requiredField": false
             }
           ]
         },
@@ -730,7 +642,7 @@
       "typeVersion": 2.5,
       "position": [
         -16,
-        -128
+        -240
       ],
       "id": "66ecc766-487b-4d0b-b211-7344dc7d2ea8",
       "name": "Page 2 - Study goal",
@@ -756,7 +668,7 @@
       "typeVersion": 2.5,
       "position": [
         208,
-        -128
+        -240
       ],
       "id": "76807106-89ea-4fc6-80c5-3ddcaf8d767a",
       "name": "Page 3 - Uploads",
@@ -791,7 +703,7 @@
       "typeVersion": 2.5,
       "position": [
         432,
-        -128
+        -240
       ],
       "id": "03eaec29-9a9f-419a-b693-939b7a33768f",
       "name": "Page 4 - Your level",
@@ -828,8 +740,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        656,
-        -128
+        1104,
+        -160
       ],
       "id": "1c7487ba-bed5-4cf3-a4fa-00e1631570b6",
       "name": "Page 5 - Learning style - 1",
@@ -866,8 +778,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        880,
-        -128
+        1328,
+        -160
       ],
       "id": "f476e26f-22dc-4eca-9ade-f65a7f15c2ad",
       "name": "Page 5 - Learning style - 2",
@@ -904,8 +816,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        1104,
-        -128
+        1552,
+        -160
       ],
       "id": "3d6643e0-0586-40ba-9b25-d90ca79ac9c3",
       "name": "Page 5 - Learning style - 3",
@@ -942,8 +854,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        1328,
-        -128
+        1776,
+        -160
       ],
       "id": "a22baff9-e321-423a-ad67-c6b82d617031",
       "name": "Page 5 - Learning style - 4",
@@ -974,8 +886,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        1552,
-        -128
+        2224,
+        -240
       ],
       "id": "4490ae51-a616-462f-a5b8-62c3f8447319",
       "name": "Page 6 - Calendar delivery",
@@ -983,13 +895,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\\n\\nconst p1 = safe(() => $('Page 1 - Your details').first().json, {});\\nconst p2 = safe(() => $('Page 2 - Study goal').first().json, {});\\nconst p4 = safe(() => $('Page 4 - Your level').first().json, {});\\nconst p5a = safe(() => $('Page 5 - Learning style - 1').first().json, {});\\nconst p5b = safe(() => $('Page 5 - Learning style - 2').first().json, {});\\nconst p5c = safe(() => $('Page 5 - Learning style - 3').first().json, {});\\nconst p5d = safe(() => $('Page 5 - Learning style - 4').first().json, {});\\nconst p5 = { ...p5a, ...p5b, ...p5c, ...p5d };\\nconst p6 = safe(() => $('Page 6 - Calendar delivery').first().json, {});\\n\\nconst json = { ...p1, ...p2, ...p4, ...p5, ...p6 };\\nconst binary = safe(() => $('Page 3 - Uploads').first().binary, {}) || {};\\n\\nreturn [{ json, binary }];"
+        "jsCode": "const safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\n\nconst p1 = safe(() => $('Page 1 - Your details').first().json, {});   // Student Name, Email\nconst p2 = safe(() => $('Page 2 - Study goal').first().json, {});     // Study goal\nconst p4 = safe(() => $('Page 4 - Your level').first().json, {});     // Your level\nconst p5 = {\n  ...safe(() => $('Page 5 - Learning style - 1').first().json, {}),\n  ...safe(() => $('Page 5 - Learning style - 2').first().json, {}),\n  ...safe(() => $('Page 5 - Learning style - 3').first().json, {}),\n  ...safe(() => $('Page 5 - Learning style - 4').first().json, {}),\n};\nconst p6 = safe(() => $('Page 6 - Calendar delivery').first().json, {}); // delivery choice\n\nconst json = { ...p1, ...p2, ...p4, ...p5, ...p6 };\n\n// carry the uploaded files forward (Module_handbook / Source_code), if any\nconst binary = safe(() => $('Page 3 - Uploads').first().binary, {}) || {};\n\nreturn [{ json, binary }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1776,
-        -128
+        2448,
+        -240
       ],
       "id": "5516328b-64a5-41c4-8168-8acf971c1d7f",
       "name": "form_data"
@@ -1006,7 +918,7 @@
           "conditions": [
             {
               "id": "abe09d40-2392-4405-8324-50cb320c18b4",
-              "leftValue": "={{ $('Page 6 - Calendar delivery').first().json['Calendar delivery'] }}",
+              "leftValue": "={{ $('Page 6 - Calendar delivery').first().json['How should we hand over your schedule?'] }}",
               "rightValue": "Download a calendar file (.ics) I can open myself",
               "operator": {
                 "type": "string",
@@ -1024,8 +936,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        6208,
-        -128
+        6880,
+        -240
       ],
       "id": "e31fbdec-6ccf-47ad-ac0b-264430c8935d",
       "name": "delivery_choice"
@@ -1040,8 +952,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        6656,
-        -32
+        7328,
+        -144
       ],
       "id": "6d7e4ed7-fe6d-4cb8-81ac-81b923d749ad",
       "name": "Completion - Auto add",
@@ -1054,8 +966,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6432,
-        -32
+        7104,
+        -144
       ],
       "id": "a9474460-4fc8-4faa-a1a6-28dc11dee408",
       "name": "publish_calendar"
@@ -1067,24 +979,127 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2672,
-        -192
+        3344,
+        -304
       ],
       "id": "32af88d5-7b06-44d7-bc59-5c9d3e01ab1d",
       "name": "attach_code_file"
     },
     {
       "parameters": {
-        "jsCode": "const safe = (fn, fb) => { try { return fn(); } catch { return fb; } };\\nconst raw = safe(() => $('form_data').first().json['Existing weekly commitments'], '');\\nconst lines = String(raw).split('\\n').map(l => l.trim()).filter(Boolean);\\n\\nconst DOW = { monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6, sunday:0 };\\nconst re1 = /^(\\w+)\\s+(\\d{1,2}:\\d{2})\\s*[-\\u2013]\\s*(\\d{1,2}:\\d{2})\\s+(.+)$/;\\nconst re2 = /^(\\w+)\\s+(\\d{1,2}:\\d{2})\\s+(.+)$/;\\n\\nconst commitments = [];\\nfor (const line of lines) {\\n  let m = line.match(re1);\\n  if (m) {\\n    const [, day, start, end, title] = m;\\n    if (day.toLowerCase() in DOW) commitments.push({ day, start, end, title });\\n    continue;\\n  }\\n  m = line.match(re2);\\n  if (m) {\\n    const [, day, start, title] = m;\\n    if (day.toLowerCase() in DOW) {\\n      const [h, mi] = start.split(':').map(Number);\\n      const end = `${String((h + 1) % 24).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;\\n      commitments.push({ day, start, end, title });\\n    }\\n  }\\n}\\n\\nconst block = commitments.length\\n  ? '\\n\\nEXISTING WEEKLY COMMITMENTS (work around these \\u2014 never schedule study sessions during these times):\\n'\\n    + commitments.map(c => `- ${c.day} ${c.start}-${c.end}: ${c.title}`).join('\\n')\\n  : '';\\n\\nreturn [{ json: { commitmentsBlock: block, commitments } }];"
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "9jaWwdzXclqg8YsV",
+          "mode": "list",
+          "cachedResultName": "known_users",
+          "cachedResultUrl": "/projects/g55MVXO7WPKLPZfu/datatables/9jaWwdzXclqg8YsV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "keyValue": "={{ $('Page 1 - Your details').item.json.Email }}"
+            }
+          ]
+        },
+        "limit": 1
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
       "position": [
-        1920,
-        -128
+        656,
+        -240
       ],
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "name": "parse_commitments"
+      "id": "a9a7483a-1840-4ff7-af35-0f7115f8f506",
+      "name": "lookup_user",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "63b8430a-d79c-437e-a84e-8c405313b79a",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        -240
+      ],
+      "id": "61d2d12b-2618-4efa-92d8-0cea1a789a35",
+      "name": "user_exists"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "9jaWwdzXclqg8YsV",
+          "mode": "list",
+          "cachedResultName": "known_users",
+          "cachedResultUrl": "/projects/g55MVXO7WPKLPZfu/datatables/9jaWwdzXclqg8YsV"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Page 1 - Your details').item.json['Student Name'] }}",
+            "email": "={{ $('Page 1 - Your details').item.json.Email }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        -160
+      ],
+      "id": "b4fa8048-256a-4720-b836-3612c5783dea",
+      "name": "Insert row"
     }
   ],
   "pinData": {},
@@ -1257,6 +1272,17 @@
         ]
       ]
     },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "plan_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "get_weather": {
       "ai_tool": [
         [
@@ -1382,7 +1408,7 @@
       "main": [
         [
           {
-            "node": "Page 5 - Learning style - 1",
+            "node": "lookup_user",
             "type": "main",
             "index": 0
           }
@@ -1426,7 +1452,7 @@
       "main": [
         [
           {
-            "node": "Page 6 - Calendar delivery",
+            "node": "Insert row",
             "type": "main",
             "index": 0
           }
@@ -1448,7 +1474,7 @@
       "main": [
         [
           {
-            "node": "parse_commitments",
+            "node": "has_handbook",
             "type": "main",
             "index": 0
           }
@@ -1495,11 +1521,40 @@
         ]
       ]
     },
-    "parse_commitments": {
+    "lookup_user": {
       "main": [
         [
           {
-            "node": "has_handbook",
+            "node": "user_exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "user_exists": {
+      "main": [
+        [
+          {
+            "node": "Page 6 - Calendar delivery",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Page 5 - Learning style - 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Page 6 - Calendar delivery",
             "type": "main",
             "index": 0
           }
@@ -1513,7 +1568,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "e1fff9df-635e-4825-b237-907f8a41e875",
+  "versionId": "99fc0a16-1c70-403c-9c8d-e2ec8fd41f46",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "40a9dfe768665d2830970e3112a685f80ae1ee5caef5030b877cb1775dfeddad"
@@ -1522,3 +1577,4 @@
   "id": "IClAqliuoAElXQeL",
   "tags": []
 }
+
